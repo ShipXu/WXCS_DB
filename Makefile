@@ -26,8 +26,8 @@ PF_SOURCES     = $(addprefix $(SRC_DIR)/,)
 TESTER_SOURCES = $(addprefix $(SRC_DIR)/,)
 UTILS_SOURCES  = $(addprefix $(SRC_DIR)/,)
 
-PF_OBJECTS     = $(addprefix $(BUILD_DIR), $(PF_SOURCES:.cc=.o))
-TESTER_OBJECTS = $(addprefix $(BUILD_DIR), $(TESTER_SOURCES:.cc=.o))
+PF_OBJECTS     = $(addprefix $(BUILD_DIR), $(PF_SOURCES:.cpp=.o))
+TESTER_OBJECTS = $(addprefix $(BUILD_DIR), $(TESTER_SOURCES:.cpp=.o))
 
 #
 # declare previously for building target
@@ -36,8 +36,8 @@ LIBRARY_PF     = $(LIB_DIR)libpf.a
 LIBRARIES      = $(LIBRARY_PF)
 
 
-UTILS          = $(UTILS_SOURCES:.cc=)
-TESTS          = $(TESTER_SOURCES:.cc=)
+UTILS          = $(UTILS_SOURCES:.cpp=)
+TESTS          = $(TESTER_SOURCES:.cpp=)
 EXECUTABLES    = $(UTILS) $(TESTS)
 
 LIBS           = -lparser -lpf
@@ -64,7 +64,7 @@ $(LIBRARY_PF): $(PF_OBJECTS)
 #
 -include $(OBJECTS:.o=.d)
 
-$(BUILD_DIR)%.d: %.cc
+$(BUILD_DIR)%.d: %.cpp
     @set -e; \
      rm -f $@; \
      $(CC) $(CFLAGS) -MM -MT $(@:.d=.o) $< > $@.$$$$; \
