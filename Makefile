@@ -10,6 +10,7 @@
 CC             = g++
 BUILD_DIR      = ./build/
 LIB_DIR        = ./lib/
+SRC_DIR        = ./src/
 AR             = ar -rc
 RANLIB         = ranlib
 
@@ -21,9 +22,9 @@ CFLAGS         = -g -O1 -Wall
 #
 # Please modify SOURCES variables as needed when changing the source code
 #
-PF_SOURCES     = 
-TESTER_SOURCES = 
-UTILS_SOURCES  = 
+PF_SOURCES     = $(addprefix $(SRC_DIR)/,)
+TESTER_SOURCES = $(addprefix $(SRC_DIR)/,)
+UTILS_SOURCES  = $(addprefix $(SRC_DIR)/,)
 
 PF_OBJECTS     = $(addprefix $(BUILD_DIR), $(PF_SOURCES:.cc=.o))
 TESTER_OBJECTS = $(addprefix $(BUILD_DIR), $(TESTER_SOURCES:.cc=.o))
