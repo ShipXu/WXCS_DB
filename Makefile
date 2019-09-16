@@ -22,9 +22,13 @@ CFLAGS         = -g -O1 -Wall
 #
 # Please modify SOURCES variables as needed when changing the source code
 #
-PF_SOURCES     = $(addprefix $(SRC_DIR)/,)
-TESTER_SOURCES = $(addprefix $(SRC_DIR)/,)
-UTILS_SOURCES  = $(addprefix $(SRC_DIR)/,)
+PF_SOURCES     = $(addprefix $(SRC_DIR)/pf/, pf_buffermgr.cpp pf_filehandle.cpp \
+                 pf_pagehandle.cpp pf_hashtable.cpp pf_manager.cpp \
+                 pf_statistics.cpp statistics.cpp)
+RM_SOURCES     = $(addprefix $(SRC_DIR)/rm/, rm_manager.cpp rm_filehandle.cpp rm_record.cpp \
+                 rm_filescan.cpp rm_error.cpp rm_rid.cpp)
+TESTER_SOURCES = $(addprefix $(SRC_DIR)/test/, rm_testkpg.cpp)
+UTILS_SOURCES  = $(addprefix $(SRC_DIR)/, base.cpp)
 
 PF_OBJECTS     = $(addprefix $(BUILD_DIR), $(PF_SOURCES:.cpp=.o))
 TESTER_OBJECTS = $(addprefix $(BUILD_DIR), $(TESTER_SOURCES:.cpp=.o))
@@ -33,6 +37,7 @@ TESTER_OBJECTS = $(addprefix $(BUILD_DIR), $(TESTER_SOURCES:.cpp=.o))
 # declare previously for building target
 #
 LIBRARY_PF     = $(LIB_DIR)libpf.a
+LIBRARY_RM     = $(LIB_DIR)librm.a
 LIBRARIES      = $(LIBRARY_PF)
 
 
@@ -58,6 +63,10 @@ testers: all $(TESTS)
 $(LIBRARY_PF): $(PF_OBJECTS)
     $(AR) $(LIBRARY_PF) $(PF_OBJECTS)
     $(RANLIB) $(LIBRARY_PF)
+
+$(LIBRARY_RM): $(RM_OBJECTS)
+	$(AR) $(LIBRARY_RM) $(RM_OBJECTS)
+	$(RANLIB) $(LIBRARY_RM)
 
 #
 # Rules
