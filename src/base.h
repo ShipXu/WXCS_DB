@@ -1,9 +1,9 @@
-#ifndef BASE_H
-#define BASE_H
 //
 // redbase.h
 //   global declarations
 //
+#ifndef BASE_H
+#define BASE_H
 
 // Please DO NOT include any other files in this file.
 
@@ -95,8 +95,6 @@ typedef char Boolean;
 
 #ifndef NULL
 #define NULL 0
-#endif
-
 #endif
 
 #endif //BASE_H
