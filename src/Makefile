@@ -1,7 +1,7 @@
 #
 # Makefile for the RedBase project.
 #
-# Author: Hyunjung Park (hyunjung@cs.stanford.edu)
+# Author: Ship Xu
 #
 
 
