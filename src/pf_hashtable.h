@@ -1,10 +1,3 @@
-//
-// File:        pf_hashtable.h
-// Description: PF_HashTable class interface
-// Authors:     Hugo Rivero (rivero@cs.stanford.edu)
-//              Dallan Quass (quass@cs.stanford.edu)
-//
-
 #ifndef PF_HASHTABLE_H
 #define PF_HASHTABLE_H
 

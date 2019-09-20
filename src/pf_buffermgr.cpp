@@ -585,10 +585,10 @@ RC PF_BufferMgr::readPage(int fd, PageNum pageNum, char *dest)
     {
         return PF_UNIX;
     }
-    else if (numBytes != PF_PAGE_SIZE)
-    {
-        return PF_INCOMPLETEREAD;
-    }
+    //else if (numBytes != PF_PAGE_SIZE)
+    //{
+    //    return PF_INCOMPLETEREAD;
+    //}
     else
     {
         return OK_RC;

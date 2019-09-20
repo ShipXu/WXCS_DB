@@ -1,5 +1,5 @@
 //
-// redbase.h
+// base.h
 //   global declarations
 //
 #ifndef BASE_H

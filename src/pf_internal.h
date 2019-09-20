@@ -1,11 +1,3 @@
-//
-// File:        pf_internal.h
-// Description: Declarations internal to the paged file component
-// Authors:     Hugo Rivero (rivero@cs.stanford.edu)
-//              Dallan Quass (quass@cs.stanford.edu)
-//              Jason McHugh (mchughj@cs.stanford.edu)
-//
-
 #ifndef PF_INTERNAL_H
 #define PF_INTERNAL_H
 
