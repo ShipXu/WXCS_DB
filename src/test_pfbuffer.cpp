@@ -51,7 +51,7 @@ int main ()
     // pf_buffer.printBuffer();
 
     // 2. test getPage
-    for (int now_page = 0; now_page <= pageNum; ++now_page)
+    for (int now_page = 0; now_page < pageNum; ++now_page)
     {
         int rc = pf_buffer.getPage(fd, now_page, now_ptr);
         if (!rc)
