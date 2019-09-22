@@ -91,8 +91,8 @@ int IO_Process::processOrder(char *custome_file, long int cust_num, char *order_
 // Out:  _lineitem - the initial address of lineitem table data
 //       _lineitem_index - the initial address of lineitem table index
 //
-int IO_Process::processLineitem(char *file, long int size){
-
+int IO_Process::processLineitem(char *file, long int size)
+{
     IO_Mmap io_mmap(file);
     char *pcontent = io_mmap.getData();
     
@@ -210,7 +210,8 @@ int IO_Process::mapCustomeData(char *file, long int number)
     {
         len1 = fineChar(pcontent,'|');
         pcontent += len1 + 1; // pcontent go to the next char of '|'
-        switch(*pcontent){
+        switch(*pcontent)
+        {
             case 'B':
                 _custome[rowid] = 0; // custome_id equal to rowid
                 break;

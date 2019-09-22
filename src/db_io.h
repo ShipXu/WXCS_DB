@@ -70,8 +70,8 @@ class IO_Mmap
         int _fd;
 };
 
-class IO_Process{
-
+class IO_Process
+{
     public:
         ~IO_Process(); //deconstruct
         //get the data of ordertable
