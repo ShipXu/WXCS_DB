@@ -1,6 +1,6 @@
 #include "db_io.h"
 //
-// getOrderData
+// processOrder
 //
 // Desc: get the data of Ordertable and group it by department
 //
@@ -82,9 +82,9 @@ int IO_Process::processOrder(char *custome_file, long int cust_num, char *order_
 };
 
 //
-// getLineitemData
+// processLineitem
 //
-// Desc: get the data of LineitemTable
+// Desc: get the data of LineitemTable and build an index for it
 //
 // In:   file - the path of file
 //       number - number of orders in the file

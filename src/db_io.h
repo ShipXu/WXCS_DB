@@ -76,7 +76,7 @@ class IO_Process
         ~IO_Process(); //deconstruct
         //get the data of ordertable
         int processOrder(char *custome_file, long int cust_num, char *order_file, long int ord_num); 
-         //get the data of lineitemtable
+         //get the data of lineitemtable and bulid index for in
         int processLineitem(char *file, long int number);
 
         Order* getOrder(long int department) 
