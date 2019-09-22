@@ -33,9 +33,9 @@ STATS_OPTION   = -DPF_STATS
 #
 # Students: Please modify SOURCES variables as needed.
 #
-IO_SOURCES     = db_io.cpp
-PF_SOURCES     = pf_hashtable.cpp pf_buffermgr.cpp
-TESTER_SOURCES = test_io.cpp test_hash_table.cpp test_pfbuffer.cpp
+IO_SOURCES     = db_io.cpp 
+PF_SOURCES     = io_mmap.cpp io_process.cpp pf_hashtable.cpp pf_buffermgr.cpp
+TESTER_SOURCES = test_mmap.cpp test_ioprocess.cpp test_io.cpp test_hash_table.cpp test_pfbuffer.cpp
 
 IO_OBJECTS     = $(addprefix $(BUILD_DIR), $(IO_SOURCES:.cpp=.o))
 PF_OBJECTS     = $(addprefix $(BUILD_DIR), $(PF_SOURCES:.cpp=.o))
