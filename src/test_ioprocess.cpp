@@ -109,10 +109,11 @@ void searchResult(IO_Process *p_io_process, char *c_mktsegment, char *ord_date, 
             {
                 result.order_id = order_id;
                 daysToDate(day, result.date);
-                if(result.revenue >= 399884.41)
-                {
-                    printf("%d, %s, %f\n", result.order_id, result.date, result.revenue);
-                }
+                printf("%d, %s, %f\n", result.order_id, result.date, result.revenue);
+                // if(result.revenue >= 399884.41)
+                // {
+                //     printf("%d, %s, %f\n", result.order_id, result.date, result.revenue);
+                // }
                 
             }
         }
