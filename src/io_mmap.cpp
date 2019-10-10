@@ -1,7 +1,7 @@
-#include"db_io.h"
+#include "io_mmap.h"
 
 
-IO_Mmap::IO_Mmap(char *file)
+IO_Mmap::IO_Mmap(const char *file)
 {
     // open file and get the size of file
     _fd = open(file, O_RDONLY);

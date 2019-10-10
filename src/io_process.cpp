@@ -1,5 +1,7 @@
-#include "db_io.h"
 
+#include "io_process.h"
+
+static omp_lock_t lock;
 
 IO_Process::IO_Process()
 {
@@ -11,6 +13,32 @@ IO_Process::IO_Process()
     _h_date.resize(2408);
 }
 
+template <typename T>
+void IO_Process::_MergeV(T &v1, const T &v2)
+{
+    for (size_t i = 0; i < v1.size(); i++)
+    {
+        v1[i].insert(v1[i].end(), v2[i].begin(), v2[i].end());
+    }
+}
+
+void IO_Process::MergeRecord(std::vector< std::vector<int> > &t_b_date,
+                 std::vector< std::vector<int> > &t_a_date,
+                 std::vector< std::vector<int> > &t_m_date,
+                 std::vector< std::vector<int> > &t_h_date,
+                 std::vector< std::vector<int> > &t_f_date)
+{
+    omp_set_lock(&lock);
+
+    _MergeV(_b_date, t_b_date);
+    _MergeV(_a_date, t_a_date);
+    _MergeV(_m_date, t_m_date);
+    _MergeV(_h_date, t_h_date);
+    _MergeV(_f_date, t_f_date);
+
+    omp_unset_lock(&lock);
+}
+
 //
 // processOrder
 //
@@ -19,87 +47,89 @@ IO_Process::IO_Process()
 // In:   file - the path of file
 //       number - number of orders in the file
 // Out:  _order - the initial address of orders table data
-//            
 //
-int IO_Process::processOrder(char *custome_file, int cust_num, char *order_file, int ord_num)
+int IO_Process::ProcessOrder(const char *custome_file, size_t cust_work_amount, const char *order_file, size_t work_amount)
 {
-    if(-1 == mapCustomeData(custome_file, cust_num) )
+    if(-1 == MapCustomerData(custome_file, cust_work_amount) )
     {
         return -1;
     }
+
     IO_Mmap io_mmap(order_file);
     char *pcontent = io_mmap.getData();
-   
-    // _order = (Order*)malloc(sizeof(Order)* ORDER_SZIE);
 
-    // if (NULL == _order)
-    // {
-    //     printf("error:fail to allocate memory to _order\n");
-    //     return -1;
-    // }
-
-    // Order* pOrder[5]; //each point one department
-    // for(int i = 0; i < 5; ++i)
-    // {
-    //     pOrder[i] = _order + DEPARTMENT_START_ADDRESS[i];
-    // }
-    // for(int i = 0; i < 5; ++i)
-    // {
-    //     _department_size[i] = 0;
-    // }
-
-    int len1;
-    int num1, num2, num3;
-    int department_type;
-    int yy,mm,dd;
-    int days = 0;
     // printf("read order start\n");
-    for(int rowid = 1; rowid < ord_num+1; ++rowid)
+    auto ker = [&](const int ithr, const int nthr)
     {
-        len1 = charArrayToInt(pcontent , '|', num1);
-        pcontent += len1 + 1;  // pcontent go to the next char of '|'
-        len1 = charArrayToInt(pcontent , '|', num2);
-        pcontent += len1 + 1; // pcontent go to the next char of '|'
-        // if(num2 < 0 || num2 > 15000000)
-        // {
-        //     printf("errror : num process,%ld", num2);
-        //     return -1;
-        // }
-        department_type = _custome[num2];       //depend on custome_id , get the department_type
-        //pOrder[department_type]->order_id = num1;
-        //_department_size[department_type] += 1;
-       // pOrder[department_type]->date = 0;
-        yy = dd = mm = 0;
-        for(int i = 0; i < 4; ++i)
-        {
-             yy = yy*10 + *pcontent - '0';
-             pcontent += 1;
-        }
-        pcontent += 1;
-        for(int i = 0; i < 2; ++i)
-        {
-             mm = mm*10 + *pcontent - '0';
-             pcontent += 1;
-        }
-        pcontent += 1;
-        for(int i = 0; i < 2; ++i)
-        {
-             dd = dd *10 + *pcontent - '0';
-             pcontent += 1;
-        }
-        days = dateToDay(yy,mm,dd);
-        addRecord(department_type, days, num1);
-        pcontent += 1; // pcontent go to the next char of '\n'
-        if(*pcontent == '\0') break;
-        // pOrder[department_type] += 1;
-    }
-    _order_size = ord_num;
+        size_t start = GetStartDivideOrder(ithr, nthr);
 
+        int start_row_id = GetStartRowidOrder(ithr, nthr);
+        int end_row_id = GetEndRowidOrder(ithr, nthr);
+    
+        auto t_pcontent = pcontent + start;
+        size_t item_len{0};
+        int department_type = -1;
+        int order_id = -1;
+        int customer_id = -1;
+        int days = -1;
+
+        std::vector< std::vector<int> > t_b_date(2408);  // the second char represent department;
+        std::vector< std::vector<int> > t_a_date(2408);
+        std::vector< std::vector<int> > t_m_date(2408);
+        std::vector< std::vector<int> > t_h_date(2408);
+        std::vector< std::vector<int> > t_f_date(2408);
+
+        for (int row_id = start_row_id; row_id < end_row_id; row_id++)
+        {
+            item_len = CharArrayToInt(t_pcontent, '|', order_id);
+            t_pcontent += item_len + 1;  // pcontent go to the next char of '|'
+
+            item_len = CharArrayToInt(t_pcontent , '|', customer_id);
+            t_pcontent += item_len + 1; // pcontent go to the next char of '|'
+    
+            department_type = _customer[customer_id];       //depend on custome_id , get the department_type
+
+            days = GetOrderDay(t_pcontent);
+            switch(department_type)
+            {
+                case 0:
+                    t_b_date[days].push_back(order_id);
+                    break;
+                case 1:
+                    t_a_date[days].push_back(order_id);
+                    break;
+                case 2:
+                    t_m_date[days].push_back(order_id);
+                    break;
+                case 3:
+                    t_f_date[days].push_back(order_id);
+                    break;
+                case 4:
+                    t_h_date[days].push_back(order_id);
+                    break;
+                default:
+                    break;
+            }
+            t_pcontent++; // pcontent go to the next char of '\n'
+            if (*t_pcontent == '\0')
+                break;
+        }
+
+        MergeRecord(t_b_date, t_a_date, t_m_date, t_h_date, t_f_date);
+    };
+
+    #pragma omp parallel num_threads(8)
+    {
+        ker(omp_get_thread_num(), 8);
+    }
+    // ker(7, 8);
+
+    _order_size = work_amount;
     return 0;
 };
 
 //
-// processLineitem
+// ProcessLineitem
 //
 // Desc: get the data of LineitemTable and build an index for it
 //
@@ -108,147 +138,208 @@ int IO_Process::processOrder(char *custome_file, int cust_num, char *order_file,
 // Out:  _lineitem - the initial address of lineitem table data
 //       _lineitem_index - the initial address of lineitem table index
 //
-int IO_Process::processLineitem(char *file, int size)
+int IO_Process::ProcessLineitem(const char *file, size_t work_amount)
 {
     IO_Mmap io_mmap(file);
     char *pcontent = io_mmap.getData();
-    
-    _lineitem = (Lineitem*)malloc(sizeof(Lineitem)*size);
+
+    _lineitem = (Lineitem*)malloc(sizeof(Lineitem)*work_amount);
     if (NULL == _lineitem)
     {
         printf("error:fail to allocate memory to _lineitem\n");
         return -1;
     }
+
     _oid_to_address = (int*)malloc(sizeof(int)*(_order_size+1));
     if (NULL == _oid_to_address)
     {
         printf("error:fail to allocate memory to _lineitem_index\n");
         return -1;
     }
-    memset(_oid_to_address, -1, sizeof(int)*(_order_size+1));
-    Lineitem *p_lineitem= _lineitem;
-    //int *p_oid_to_address = (_oid_to_address+1);
-    // LineitemIndex *p_lineitem_index = _lineitem_index;
-    _limeitem_index_size = 1;
-    int len1, pre_rowid;
+    memset(_oid_to_address, -1, sizeof(int)*(_order_size + 1));
+
+    int len1;
     int num, pre_orderid;
     double price = 0;
     //LineitemAddress temp;
-    pre_rowid = 1; 
     pre_orderid = -1;
-
-    for(int rowid = 1; rowid < size+1; ++rowid)
+   
+     
+    auto ker = [&](const int ithr, const int nthr)
     {
-        len1 = charArrayToInt(pcontent , '|', num);
-        //printf("%d\n", num);
-        if(pre_orderid != num && _limeitem_index_size < _order_size)
-        {
-            _oid_to_address[_limeitem_index_size] = rowid;
-            pre_orderid = num;
-            //pre_rowid = rowid;
-            // p_oid_to_address += 1;
-            _limeitem_index_size += 1;
-        }
-        p_lineitem->order_id = num;  
-        pcontent += len1+1;  // pcontent go to the next char of '|'
+        size_t start = GetStartDivideLineitem(ithr, nthr);
 
-        len1 = charArrayToInt(pcontent , '.', num);
-        pcontent += len1+1;
-        price = num;
+        int start_row_id = GetStartRowidLineitem(ithr, nthr);
+        int end_row_id = GetEndRowidLineitem(ithr, nthr);
 
-        len1 = charArrayToInt(pcontent , '|', num);
-        price += ((double)num/100.0);
-        pcontent+=len1+1;
-        p_lineitem->price = price;
+        auto t_pcontent = pcontent + start;
         
-        p_lineitem->date = 0;
-        for(int i = 0; i < 4; ++i)
+        Lineitem *p_lineitem = _lineitem + start_row_id - 1;
+        size_t item_len{0};
+        int order_id = -1;
+        int pre_orderid = -1;
+        double price = 0;
+        int price_part = 0;
+        int oidHash = -1;
+        for (int row_id = start_row_id; row_id < end_row_id; row_id++)
         {
-            p_lineitem->date =  p_lineitem->date*10 + *pcontent - '0';
-            pcontent += 1;
+            item_len = CharArrayToInt(t_pcontent, '|', order_id);
+           
+            if (pre_orderid != order_id)//&& oidHash < _order_size)
+            {
+                oidHash = OidHash(order_id);
+                if (_oid_to_address[oidHash] == -1)
+                {
+                    _oid_to_address[oidHash] = row_id;
+                }else if (row_id < _oid_to_address[oidHash])
+                {
+                    _oid_to_address[oidHash] = row_id;
+                }
+                
+                pre_orderid = order_id;
+            }
+
+            p_lineitem->order_id = order_id;
+            t_pcontent += item_len + 1;  // pcontent go to the next char of '|'
+
+            item_len = CharArrayToInt(t_pcontent, '.', price_part);
+            price = price_part;
+            t_pcontent += item_len + 1;
+
+            item_len = CharArrayToInt(t_pcontent, '|', price_part);
+            price += ((double)price_part / 100.0);
+            t_pcontent += item_len + 1;
+            p_lineitem->price = price;
+
+            p_lineitem->date = 0;
+            // for(int i = 0; i < 4; ++i)
+            // {
+            //     p_lineitem->date = p_lineitem->date * 10 + *t_pcontent - '0';
+            //     t_pcontent++;
+            // }
+             p_lineitem->date = p_lineitem->date * 10 + t_pcontent[3] - '0';
+            t_pcontent += 5;
+            for(int i = 0; i < 2; ++i)
+            {
+                p_lineitem->date = p_lineitem->date * 10 + *t_pcontent - '0';
+                t_pcontent++;
+            }
+            t_pcontent++;
+            for(int i = 0; i < 2; ++i)
+            {
+                p_lineitem->date = p_lineitem->date * 10 + *t_pcontent - '0';
+                t_pcontent++;
+            }
+
+            t_pcontent++; // pcontent go to the next char of '\n'
+
+            if (*t_pcontent == '\0')
+                break;
+
+            p_lineitem += 1;
         }
-        pcontent += 1;
-        for(int i = 0; i < 2; ++i)
-        {
-            p_lineitem->date =  p_lineitem->date*10 + *pcontent - '0';
-            pcontent += 1;
-        }
-        pcontent += 1;
-        for(int i = 0; i < 2; ++i)
-        {
-            p_lineitem->date =  p_lineitem->date*10 + *pcontent - '0';
-            pcontent += 1;
-        }
-        pcontent += 1; // pcontent go to the next char of '\n'
-        if(*pcontent == '\0') break;
-        p_lineitem += 1;
+    };
+
+    #pragma omp parallel num_threads(8)
+    {
+        ker(omp_get_thread_num(), 8);
     }
 
-    _limeitem_size = size;
+    _limeitem_size = work_amount;
     return 0;
 };
 
 
+int IO_Process::get_index_cutomer(const char first_item, size_t& d_size)
+{
+    if (first_item == 'B')
+    {
+        d_size = 8;
+        return 0;
+    }
+    else if (first_item == 'A')
+    {
+        d_size = 10;
+        return 1;
+    }
+    else if (first_item == 'M')
+    {
+        d_size = 9;
+        return 2;
+    }
+    else if (first_item == 'H')
+    {
+        d_size = 9;
+        return 3;
+    }
+    else if (first_item == 'F')
+    {
+        d_size = 9;
+        return 4;
+    }
+    else
+        throw "customer doesn't belong to any department";
+}
+
 //
-// mapCustomeData
+// MapCustomerData
 //
-// Desc: map custome table's custome_id to it's department
+// Desc: map customer table's customer_id to it's department
 //
 // In:   file - the path of file
-//       number - number of customes in the file
+//       work_amount - number of customes in the file
 // Out:  _custome - a table map custome table's custome_id to it's department
 //            
 //
-int IO_Process::mapCustomeData(char *file, int number)
+int IO_Process::MapCustomerData(const char *file, size_t work_amount)
 {
     IO_Mmap io_mmap(file);
     char *pcontent = io_mmap.getData();
     
-    _custome = (int*)malloc(sizeof(int)*(number+1));
+    _customer = (int*)malloc(sizeof(int)*(work_amount + 1));
 
-    if (NULL == _custome)
+    if (NULL == _customer)
     {
-        printf("error:fail to allocate memory to _custome\n");
+        printf("error:fail to allocate memory to _customer\n");
         return -1;
     }
 
-    memset((void *)_custome, -1, number+1);
-
-    int len1;
-    int num;
-
-    //map one row's custome_id to it's department
-    for(int rowid = 1; rowid <= number; ++rowid)
+    memset((void*)_customer, -1, work_amount + 1);
+    auto ker = [&](const int ithr, const int nthr)
     {
-        len1 = fineChar(pcontent,'|');
-        pcontent += len1 + 1; // pcontent go to the next char of '|'
-        switch(*pcontent)
-        {
-            case 'B':
-                _custome[rowid] = 0; // custome_id equal to rowid
-                break;
-            case 'A':
-                _custome[rowid] = 1;
-                break;
-            case 'M':
-                _custome[rowid] = 2;
-                break;
-            case 'H':
-                _custome[rowid] = 3;
-                break;
-            case 'F':
-                _custome[rowid] = 4;
-                break;
-        };
+        size_t start = GetStartDivideCustomer(ithr, nthr);
+        
+        int start_row_id = GetStartRowidCustomer(ithr, nthr);
+        int end_row_id = GetEndRowidCustomer(ithr, nthr);
 
-        while(*pcontent != '\n')
+        auto t_pcontent = pcontent + start;
+        size_t item_len{0};
+
+        //printf("%d %d\n", start_row_id, end_row_id);
+        for (int row_id = start_row_id; row_id < end_row_id; row_id++)
         {
-            pcontent += 1;
+            item_len = FindChar(t_pcontent, '|');
+            t_pcontent += item_len + 1; // pcontent go to the next char of '|'
+
+            // get the type of department by its first letter
+            // set _customer[row_id] = index of its type,
+            // ,and change item_len to the department length 
+            int temp = get_index_cutomer(*t_pcontent, item_len);
+            _customer[row_id] = temp;
+
+            //printf("%d %d\n", row_id, temp);
+            t_pcontent += item_len + 1; // jump over the department item
+            if (*t_pcontent == '\0')
+                break;
         }
+    };
 
-        if(*pcontent == '\0') break;
+    #pragma omp parallel num_threads(8)
+    {
+        ker(omp_get_thread_num(), 8);
     }
-    _custome_size = number;
+
+    _customer_size = work_amount;
     return 0;
 };
 
@@ -261,262 +352,95 @@ int IO_Process::mapCustomeData(char *file, int number)
 //       days - how many from 1992-01-01 to now
 //       num1 - the record     
 //
-void IO_Process::addRecord(int department_type, int days,int num1)
+void IO_Process::AddRecord(int department_type, int days, int order_id)
 {
-    switch (department_type)
-        {
-            case 0:
-                _b_date[days].push_back(num1);
-                break;
-            case 1:
-                _a_date[days].push_back(num1);
-                break;
-            case 2:
-                _m_date[days].push_back(num1);
-                break;
-            case 3:
-                _f_date[days].push_back(num1);
-                break;
-            case 4:
-                _h_date[days].push_back(num1);
-                break;
-            default:
-                break;
-        }
+    omp_set_lock(&lock);
+    switch(department_type)
+    {
+        case 0:
+            _b_date[days].push_back(order_id);
+            break;
+        case 1:
+            _a_date[days].push_back(order_id);
+            break;
+        case 2:
+            _m_date[days].push_back(order_id);
+            break;
+        case 3:
+            _f_date[days].push_back(order_id);
+            break;
+        case 4:
+            _h_date[days].push_back(order_id);
+            break;
+        default:
+            break;
+    }
+    omp_unset_lock(&lock);
 }
 
-int* IO_Process::getOidToAddress() 
+int* IO_Process::get_custome() 
 {
-        return _oid_to_address;
+    return _customer;
 };
 
-Lineitem* IO_Process::getLineitem() 
+int* IO_Process::get_oid_to_address() 
+{
+    return _oid_to_address;
+};
+
+Lineitem* IO_Process::get_lineitem() 
 {
     return _lineitem;
 }
 
-long int IO_Process::getLineitemIndexSize() 
+size_t IO_Process::get_oid_to_address_size() 
 {
-    return _limeitem_index_size;
+    return _oid_to_address_size;
 }    
 
-int IO_Process::getOrderSize() 
-{
-    return _order_size;
-}
 
-int IO_Process::getLineitemSize() 
+size_t IO_Process::get_limeitem_size() 
 {
     return _limeitem_size;
 }
 
-std::vector< std::vector<int> >  IO_Process::getBDate() 
+std::vector< std::vector<int> >  IO_Process::get_b_date() 
 {
     return _b_date;
 }
 
-std::vector< std::vector<int> >  IO_Process::getADate() 
+std::vector< std::vector<int> >  IO_Process::get_a_date() 
 {
     return _a_date;
 }
 
-std::vector< std::vector<int> >  IO_Process::getMDate() 
+std::vector< std::vector<int> >  IO_Process::get_m_date() 
 {
     return _m_date;
 }
 
-std::vector< std::vector<int> >  IO_Process::getHDate() 
+std::vector< std::vector<int> >  IO_Process::get_h_date() 
 {
     return _h_date;
 }
 
-std::vector< std::vector<int> >  IO_Process::getFDate() 
+std::vector< std::vector<int> >  IO_Process::get_f_date() 
 {
     return _f_date;
 }
 
 IO_Process::~IO_Process()
 {
-    if(_order != NULL)
-        free(_order);
-    if(_custome != NULL)
-        free(_custome);
+    // if(_order != NULL)
+    //     free(_order);
+    if(_customer != NULL)
+        free(_customer);
     if(_lineitem != NULL)
         free(_lineitem);
+    if(_oid_to_address != NULL)
+        free(_oid_to_address);
     // if(_lineitem_index != NULL)
     //     free(_lineitem_index);
 }
 
 
-
-//
-// finechar
-//
-// Desc: find index of the first char equals 'c' and return it's index
-//
-// In:   input - the input char array
-//       c - the char to be finded
-// Out:  index - the index of first char equals 'c'
-//            
-//
-int fineChar(char *input, char c)
-{
-    int index = 0; 
-    char *ptr_input = input;
-    while(*ptr_input != c)
-    {
-        ptr_input += 1;
-        index += 1;
-    }
-    return index;
-}
-
-//
-// finechar
-//
-// Desc: change the charArray from now to first char 'c' to long int 
-//
-// In:   input - the input charArray
-//       c - the char to be finded
-// Out:  index - the index of first char equals 'c'
-//       num - the long int content of the charArray
-//
-int charArrayToInt(char * input, char c , int &num)
-{
-    int index = 0; 
-    char *pinput = input;
-    num = 0;
-    while(*pinput != c)
-    {
-        index += 1;
-        num = num*10 + (*pinput - '0');
-        pinput += 1;
-    }
-    return index;
-}
-
-//
-// Desc: change the date to how many days from 1992-01-01 to input 
-//
-// In:   yy - which year
-//       mm - which month
-//       dd - which day
-// Out:  days - how many days from 1992-01-01 to input 
-//
-int dateToDay(int yy, int mm, int dd)
-{
-    int year = yy - 1992;
-    int days = dd + year * 365;
-    if(year >= 5)
-    {
-        days += 2;
-    } 
-    else if( year >= 1) 
-    {   
-        days += 1;
-    }
-    int leap = 0;
-    //Determine whether it is a leap year
-    if(yy == 1992 || yy == 1996)
-    {
-        leap = 1;
-    }
-    for(int i = 1; i < mm ; ++i)
-    {
-        days += MONTH_DAY[leap][i];
-    }
-    return days;
-}
-
-
-//
-// Desc: change how many days from 1992-01-01 to now to date 
-//
-// In:   days - how many days from 1992-01-01 to now to date 
-//       result - an char array of this format 199x-xx-xx
-// Out:  result - the date 
-//
-void daysToDate(int days, char *result)
-{
-    int leap = 0; 
-    
-    for(int year = 1992; year < 1999; ++year)
-    {
-        //Determine whether it is a leap year
-        if(year == 1992 || year == 1996)
-        {
-            leap = 1;
-        }
-        else
-        {
-            leap = 0;
-        };
-       
-        if(days <= MONTH_DAY[leap][0])
-        {
-            result[3] = (year % 10) + '0';
-            for(int mm = 1; mm < 13; ++mm)
-            {
-                if(days <= MONTH_DAY[leap][mm])
-                {
-                    result[5] = (mm / 10) + '0';
-                    result[6] = (mm % 10) + '0';
-                    result[8] = (days / 10) + '0';
-                    result[9] = (days % 10) + '0';
-                    return;
-                }
-                else
-                {
-                    days -= MONTH_DAY[leap][mm];
-                }
-            }
-        }
-        else
-        {
-            days -= MONTH_DAY[leap][0];
-        }
-    }
-}
-
-//
-// Desc: change date char with format of 199x-xx-xx to year,mouth, day
-//
-// In:   date - date char with format of 199x-xx-xx
-// Out:  yy - year 
-//       mm - mouth 
-//       dd - day 
-//
-void dateToInt(char *date, int &yy, int &mm, int &dd)
-{
-    yy = 0;
-    mm = 0;
-    dd = 0;
-    for(int i = 0; i < 4; ++i)
-    {
-        yy = (yy * 10) + date[i] - '0';
-    }
-    
-    for(int i = 5; i < 7; ++i)
-    {
-        mm = (mm * 10) + date[i] - '0';
-    }
-    for(int i = 8; i < 10; ++i)
-    {
-        dd = (dd * 10) + date[i] - '0';
-    }
-
-}
-
-//
-// Desc: a hash map order id to rowid
-//
-// In:   oid - order id
-// Out:  rowids 
-//
-int oidHash(int oid)
-{
-    int rowids = oid >> 5;
-    rowids = rowids << 3;
-    rowids += oid % 8;
-    return rowids;
-}
