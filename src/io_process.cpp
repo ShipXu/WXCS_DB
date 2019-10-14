@@ -84,7 +84,7 @@ void IO_Process::MaxDaysSize(uint32_t *day_size, int length)
 //
 int IO_Process::ProcessOrder(const char *custome_file, size_t cust_work_amount, const char *order_file, size_t work_amount)
 {
-    if(-1 == MapCustomerData(custome_file, cust_work_amount) )
+    if (-1 == MapCustomerData(custome_file, cust_work_amount) )
     {
         return -1;
     }
@@ -248,11 +248,6 @@ int IO_Process::ProcessLineitem(const char *file, size_t work_amount)
             
             department_type = _oid_department[oid_key];
             days = GetDay(t_pcontent);
-            // if(flag)
-            // {
-            //     printf("department_type:%d\n", department_type);
-            //     flag = false;
-            // }
 
             department_address = department_type * DEPARTMENT_LINEITEM_SIZE;
             days_address = days * DAYS_LINEITEM_SIZE * nthr;
@@ -377,15 +372,15 @@ int IO_Process::MapCustomerData(const char *file, size_t work_amount)
 
 IO_Process::~IO_Process()
 {
-    if(_customer != NULL)
+    if (_customer != NULL)
         free(_customer);
-    if(_oid_department != NULL)
+    if (_oid_department != NULL)
         free(_oid_department);
-    if(_oid_key_date != NULL)
+    if (_oid_key_date != NULL)
         free(_oid_key_date);
-    if(_lineitem_date_oid_key != NULL)
+    if (_lineitem_date_oid_key != NULL)
         free(_lineitem_date_oid_key);
-    if(_lineitem_date_price != NULL)
+    if (_lineitem_date_price != NULL)
         free(_lineitem_date_price);
 }
 

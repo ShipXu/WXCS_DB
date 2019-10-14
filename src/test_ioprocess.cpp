@@ -18,7 +18,7 @@ void SetOrderDateExist(char *order_date, int *date_oid, uint16_t *oid_date_exist
 
 void SearchLineitemResult(char *lineitem_date, int *date_lineitem_oid, double *date_lineitem_price,
                         uint16_t *oid_date_exist, double *oid_key_price, 
-                        std::vector<int> &result_oid, const int ithr, const int nthr);
+                        std::vector<int> &result_oid_key, const int ithr, const int nthr);
 
 // void MmapWrite()
 // {
@@ -55,7 +55,7 @@ int main()
     ord_num =  150000000;
     line_num = 600037902;
    
-    // if(-1 == io_process.mapCustomerData(cust_file, cust_num))
+    // if (-1 == io_process.mapCustomerData(cust_file, cust_num))
     // {
     //     return -1;
     // }
@@ -127,7 +127,7 @@ void SetOrderDateExist(char *order_date, int *date_oid, uint16_t *oid_date_exist
 
 void SearchLineitemResult(char *lineitem_date, int *date_lineitem_oid, double *date_lineitem_price,
                         uint16_t *oid_date_exist, double *oid_key_price, 
-                        std::vector<int> &result_oid, const int ithr, const int nthr)
+                        std::vector<int> &result_oid_key, const int ithr, const int nthr)
 {
     int lineitem_yy, lineitem_mm, lineitem_dd;
     DateToInt(lineitem_date, lineitem_yy, lineitem_mm, lineitem_dd);
@@ -140,7 +140,7 @@ void SearchLineitemResult(char *lineitem_date, int *date_lineitem_oid, double *d
     size_t this_day_size_address = 0;
     size_t this_index = 0;
     
-    for(uint16_t lineitem_day = lineitem_days+1; lineitem_day < LINEITEM_DAYS; ++lineitem_day)
+    for (uint16_t lineitem_day = lineitem_days+1; lineitem_day < LINEITEM_DAYS; ++lineitem_day)
     {
         for (size_t this_day = 0; ; ++this_day)
         {
@@ -148,15 +148,15 @@ void SearchLineitemResult(char *lineitem_date, int *date_lineitem_oid, double *d
             ithr_address = ithr * DAYS_LINEITEM_SIZE;
             this_index =  days_address + ithr_address + this_day;
             oid_key =  date_lineitem_oid[this_index];
-            if(oid_key == 0)
+            if (oid_key == 0)
             {
                 break;
             }
-            if(oid_date_exist[oid_key] > 0)
+            if (oid_date_exist[oid_key] > 0)
             {
-                if(oid_key_price[oid_key] < 0.001)
+                if (oid_key_price[oid_key] < 0.001)
                 {
-                    result_oid.push_back(oid_key);
+                    result_oid_key.push_back(oid_key);
                 }
                 oid_key_price[oid_key] += date_lineitem_price[this_index];
             }
@@ -181,28 +181,26 @@ void SearchResult(IO_Process *p_io_process, char *c_mktsegment,
     int *date_lineitem_oid = p_io_process->get_lineitem_date_oid_key(c_mktsegment[0]);
     double *date_lineitem_price = p_io_process->get_lineitem_date_price(c_mktsegment[0]);
 
-    
-
     // GetTime(start, end);
     auto ker = [&](const int ithr, const int nthr)
     {
         //GetTime(start, end);
         SetOrderDateExist(order_date, date_oid, oid_date_exist, ithr, nthr);
 
-        std::vector<int> result_oid;
+        std::vector<int> result_oid_key;
 
         SearchLineitemResult(lineitem_date, date_lineitem_oid, date_lineitem_price,
-            oid_date_exist, oid_key_price, result_oid, ithr, nthr);
+            oid_date_exist, oid_key_price, result_oid_key, ithr, nthr);
         Result result;
         char result_date[11] = "1992-01-01";
-        for(int i = 0; i < result_oid.size(); ++i)
+        for (int i = 0; i < result_oid_key.size(); ++i)
         {
-            result.order_id = result_oid[i];
-            result.revenue = oid_key_price[result_oid[i]];
-            if(result.revenue >= 399884.41)
+            result.oid_key = result_oid_key[i];
+            result.revenue = oid_key_price[result_oid_key[i]];
+            if (result.revenue >= 399884.41)
             {
-                DaysToDate(oid_date_exist[result_oid[i]], result_date);
-                printf("%d, %f, %s\n", KeyToOid(result.order_id), result.revenue, result_date);
+                DaysToDate(oid_date_exist[result_oid_key[i]], result_date);
+                printf("%d, %f, %s\n", KeyToOid(result.oid_key), result.revenue, result_date);
             }
         }
     };

@@ -21,7 +21,7 @@
 
 struct Result
 {
-    int order_id;
+    int oid_key;
     double revenue;
 };
 

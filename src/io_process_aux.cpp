@@ -134,7 +134,7 @@ int GetStartRowidCustomer(int ithr, int nthr)
 
 int GetEndRowidCustomer(int ithr, int nthr)
 {
-    if(ithr == nthr - 1)
+    if (ithr == nthr - 1)
         return 15000001;
     else
         return GetStartRowid(ithr+1, nthr, 234376);
@@ -147,7 +147,7 @@ int GetStartRowidOrder(int ithr, int nthr)
 
 int GetEndRowidOrder(int ithr, int nthr)
 {
-    if(ithr == nthr - 1)
+    if (ithr == nthr - 1)
         return 150000001;
     else
         return GetStartRowidOrder(ithr + 1, nthr);
@@ -160,7 +160,7 @@ int GetStartRowidLineitem(int ithr, int nthr)
 
 int GetEndRowidLineitem(int ithr, int nthr)
 {
-    if(ithr == nthr - 1)
+    if (ithr == nthr - 1)
         return 600037902;
     else
         return GetStartRowidLineitem(ithr + 1, nthr);
@@ -204,7 +204,7 @@ int CharArrayToInt(char * input, char c , int &num)
     int index = 0; 
     char *pinput = input;
     num = 0;
-    while(*pinput != c)
+    while (*pinput != c)
     {
         index += 1;
         num = num * 10 + (*pinput - '0');
@@ -222,14 +222,14 @@ int GetDay(char* &s_date)
     yy = s_date[3] - '0';
     s_date += 5;
 
-    for(int i = 0; i < 2; ++i)
+    for (int i = 0; i < 2; ++i)
     {
         mm = mm * 10 + *s_date - '0';
         s_date++;
     }
     s_date++;
 
-    for(int i = 0; i < 2; ++i)
+    for (int i = 0; i < 2; ++i)
     {
         dd = dd * 10 + *s_date - '0';
         s_date++;
@@ -286,10 +286,10 @@ void DaysToDate(int days, char *result)
 {
     int leap = 0; 
     
-    for(int year = 1992; year < 1999; ++year)
+    for (int year = 1992; year < 1999; ++year)
     {
         //Determine whether it is a leap year
-        if(year == 1992 || year == 1996)
+        if (year == 1992 || year == 1996)
         {
             leap = 1;
         }
@@ -298,12 +298,12 @@ void DaysToDate(int days, char *result)
             leap = 0;
         };
        
-        if(days <= MONTH_DAY[leap][0])
+        if (days <= MONTH_DAY[leap][0])
         {
             result[3] = (year % 10) + '0';
-            for(int mm = 1; mm < 13; ++mm)
+            for (int mm = 1; mm < 13; ++mm)
             {
-                if(days <= MONTH_DAY[leap][mm])
+                if (days <= MONTH_DAY[leap][mm])
                 {
                     result[5] = (mm / 10) + '0';
                     result[6] = (mm % 10) + '0';
@@ -337,16 +337,16 @@ void DateToInt(char *date, int &yy, int &mm, int &dd)
     yy = 0;
     mm = 0;
     dd = 0;
-    // for(int i = 0; i < 4; ++i)
+    // for (int i = 0; i < 4; ++i)
     // {
     //     yy = (yy * 10) + date[i] - '0';
     // }
     yy = date[3] - '0';
-    for(int i = 5; i < 7; ++i)
+    for (int i = 5; i < 7; ++i)
     {
         mm = (mm * 10) + date[i] - '0';
     }
-    for(int i = 8; i < 10; ++i)
+    for (int i = 8; i < 10; ++i)
     {
         dd = (dd * 10) + date[i] - '0';
     }
