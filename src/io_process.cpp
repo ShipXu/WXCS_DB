@@ -5,12 +5,7 @@ static omp_lock_t lock;
 
 IO_Process::IO_Process()
 {
-    //resize the vector to become a fixed length array
-    _b_date.resize(2408);
-    _a_date.resize(2408);
-    _m_date.resize(2408);
-    _f_date.resize(2408);
-    _h_date.resize(2408);
+
 }
 
 template <typename T>
@@ -22,23 +17,62 @@ void IO_Process::_MergeV(T &v1, const T &v2)
     }
 }
 
-void IO_Process::MergeRecord(std::vector< std::vector<int> > &t_b_date,
-                 std::vector< std::vector<int> > &t_a_date,
-                 std::vector< std::vector<int> > &t_m_date,
-                 std::vector< std::vector<int> > &t_h_date,
-                 std::vector< std::vector<int> > &t_f_date)
+template <typename T>
+void IO_Process::MaxVectorSize(T &t_b_date, T &t_a_date,
+                 T &t_m_date, T &t_h_date,T &t_f_date)
 {
-    omp_set_lock(&lock);
-
-    _MergeV(_b_date, t_b_date);
-    _MergeV(_a_date, t_a_date);
-    _MergeV(_m_date, t_m_date);
-    _MergeV(_h_date, t_h_date);
-    _MergeV(_f_date, t_f_date);
-
-    omp_unset_lock(&lock);
+    int max_size = 0;
+    for (size_t i = 0; i < t_b_date.size(); ++i)
+    {
+        if (max_size < t_b_date[i].size())
+        {
+            max_size = t_b_date[i].size();
+        }
+    }
+    for (size_t i = 0; i < t_a_date.size(); ++i)
+    {
+        if (max_size < t_a_date[i].size())
+        {
+            max_size = t_a_date[i].size();
+        }
+    }
+    for (size_t i = 0; i < t_m_date.size(); ++i)
+    {
+        if (max_size < t_m_date[i].size())
+        {
+            max_size = t_m_date[i].size();
+        }
+    }
+    for (size_t i = 0; i < t_f_date.size(); ++i)
+    {
+        if (max_size < t_f_date[i].size())
+        {
+            max_size = t_f_date[i].size();
+        }
+    }
+    for (size_t i = 0; i < t_h_date.size(); ++i)
+    {
+        if (max_size < t_h_date[i].size())
+        {
+            max_size = t_h_date[i].size();
+        }
+    }
+    printf("max_size:%d\n", max_size);
 }
 
+void IO_Process::MaxDaysSize(uint32_t *day_size, int length)
+{
+    uint32_t max_size = 0;
+    for (int i = 0; i < length; ++i)
+    {
+        if (max_size < day_size[i])
+        {
+            max_size = day_size[i];
+        }
+        //printf("day_size[i]:%d\n", day_size[i]);
+    }
+    printf("max_size:%d\n", max_size);
+}
 //
 // processOrder
 //
@@ -58,9 +92,29 @@ int IO_Process::ProcessOrder(const char *custome_file, size_t cust_work_amount, 
     IO_Mmap io_mmap(order_file);
     char *pcontent = io_mmap.getData();
 
+    _oid_department = (int8_t*)malloc(sizeof(int8_t)*(work_amount+1));
+    if (NULL == _oid_department)
+    {
+        printf("error:fail to allocate memory to _oid_department\n");
+        return -1;
+    }
+    memset(_oid_department, -1, sizeof(int8_t)*(work_amount + 1));
+    
+    _oid_key_date = (int*)malloc(sizeof(int)*(DEPARTMENT_ORDER_SIZE * 5));
+
+    if (NULL == _oid_key_date)
+    {
+        printf("error:fail to allocate memory to _oid_key_date\n");
+        return -1;
+    }
+    //memset(_oid_key_date, -1, sizeof(int)*(DEPARTMENT_ORDER_SIZE*5));
+
     // printf("read order start\n");
     auto ker = [&](const int ithr, const int nthr)
     {
+        uint32_t day_size[ORDER_DAYS * 5];
+        memset(day_size, 0, sizeof(uint32_t) * (ORDER_DAYS * 5));
+        //printf("ProcessOrder done\n");
         size_t start = GetStartDivideOrder(ithr, nthr);
 
         int start_row_id = GetStartRowidOrder(ithr, nthr);
@@ -68,17 +122,17 @@ int IO_Process::ProcessOrder(const char *custome_file, size_t cust_work_amount, 
     
         auto t_pcontent = pcontent + start;
         size_t item_len{0};
-        int department_type = -1;
+        int8_t department_type = -1;
         int order_id = -1;
         int customer_id = -1;
         int days = -1;
-
-        std::vector< std::vector<int> > t_b_date(2408);  // the second char represent department;
-        std::vector< std::vector<int> > t_a_date(2408);
-        std::vector< std::vector<int> > t_m_date(2408);
-        std::vector< std::vector<int> > t_h_date(2408);
-        std::vector< std::vector<int> > t_f_date(2408);
-
+        int oid_key = 0;
+        size_t department_address = 0;
+        size_t days_address = 0;
+        size_t ithr_address = 0;
+        size_t this_day_size_address = 0;
+        size_t this_order_index = 0;
+        
         for (int row_id = start_row_id; row_id < end_row_id; row_id++)
         {
             item_len = CharArrayToInt(t_pcontent, '|', order_id);
@@ -88,42 +142,36 @@ int IO_Process::ProcessOrder(const char *custome_file, size_t cust_work_amount, 
             t_pcontent += item_len + 1; // pcontent go to the next char of '|'
     
             department_type = _customer[customer_id];       //depend on custome_id , get the department_type
+            oid_key = OidHash(order_id);
+            _oid_department[oid_key] = department_type;
 
-            days = GetOrderDay(t_pcontent);
-            switch(department_type)
-            {
-                case 0:
-                    t_b_date[days].push_back(order_id);
-                    break;
-                case 1:
-                    t_a_date[days].push_back(order_id);
-                    break;
-                case 2:
-                    t_m_date[days].push_back(order_id);
-                    break;
-                case 3:
-                    t_f_date[days].push_back(order_id);
-                    break;
-                case 4:
-                    t_h_date[days].push_back(order_id);
-                    break;
-                default:
-                    break;
-            }
+            days = GetDay(t_pcontent);
+            
+            department_address = department_type * DEPARTMENT_ORDER_SIZE;
+            days_address = days * DAYS_OREDER_SIZE * nthr;
+            ithr_address = ithr * DAYS_OREDER_SIZE;
+            this_day_size_address = (department_type * ORDER_DAYS) + days;
+            this_order_index = department_address + days_address + ithr_address + day_size[this_day_size_address];
+
+            // // printf("%d, %d, %d, %uz\n", department_type, days, day_size[days], index);
+            _oid_key_date[this_order_index] = oid_key;
+            day_size[this_day_size_address]++;
             t_pcontent++; // pcontent go to the next char of '\n'
             if (*t_pcontent == '\0')
                 break;
         }
-
-        MergeRecord(t_b_date, t_a_date, t_m_date, t_h_date, t_f_date);
+        //MaxDaysSize(day_size, ORDER_DAYS * 5);
+        //MergeOrderRecord(t_b_oid_key_date, t_a_oid_key_date, t_m_oid_key_date, t_h_oid_key_date, t_f_oid_key_date);
     };
 
-    #pragma omp parallel num_threads(8)
+    #pragma omp parallel num_threads(THREAD_SIZE)
     {
-        ker(omp_get_thread_num(), 8);
+        ker(omp_get_thread_num(), THREAD_SIZE);
     }
     // ker(7, 8);
-
+    //MaxVectorSize(_b_oid_key_date, _a_oid_key_date, _m_oid_key_date, _h_oid_key_date, _f_oid_key_date);
+    printf("ProcessOrder done\n");
+    
     _order_size = work_amount;
     return 0;
 };
@@ -142,64 +190,52 @@ int IO_Process::ProcessLineitem(const char *file, size_t work_amount)
 {
     IO_Mmap io_mmap(file);
     char *pcontent = io_mmap.getData();
-
-    _lineitem = (Lineitem*)malloc(sizeof(Lineitem)*work_amount);
-    if (NULL == _lineitem)
+    int max_size = 0;
+    _lineitem_date_oid_key = (int*)malloc(sizeof(int) * DEPARTMENT_LINEITEM_SIZE * 5);
+    if (NULL == _lineitem_date_oid_key)
     {
-        printf("error:fail to allocate memory to _lineitem\n");
+        printf("error:fail to allocate memory to _lineitem_date_oid_key\n");
+        return -1;
+    }
+    _lineitem_date_price = (double*)malloc(sizeof(double) * DEPARTMENT_LINEITEM_SIZE * 5);
+    if (NULL == _lineitem_date_price)
+    {
+        printf("error:fail to allocate memory to _lineitem_date_price\n");
         return -1;
     }
 
-    _oid_to_address = (int*)malloc(sizeof(int)*(_order_size+1));
-    if (NULL == _oid_to_address)
-    {
-        printf("error:fail to allocate memory to _lineitem_index\n");
-        return -1;
-    }
-    memset(_oid_to_address, -1, sizeof(int)*(_order_size + 1));
-
-    int len1;
-    int num, pre_orderid;
-    double price = 0;
-    //LineitemAddress temp;
-    pre_orderid = -1;
-   
-     
     auto ker = [&](const int ithr, const int nthr)
     {
+        uint32_t day_size[LINEITEM_DAYS * 5];
+        memset(day_size, 0, sizeof(uint32_t) * (LINEITEM_DAYS * 5));
+
         size_t start = GetStartDivideLineitem(ithr, nthr);
 
         int start_row_id = GetStartRowidLineitem(ithr, nthr);
         int end_row_id = GetEndRowidLineitem(ithr, nthr);
 
         auto t_pcontent = pcontent + start;
-        
-        Lineitem *p_lineitem = _lineitem + start_row_id - 1;
+
+        //Lineitem this_lineitem;
         size_t item_len{0};
         int order_id = -1;
-        int pre_orderid = -1;
+        int oid_key = 0;
         double price = 0;
         int price_part = 0;
         int oidHash = -1;
+        int8_t department_type = -1;
+        int days = 0;
+        bool flag = true;
+        size_t department_address = 0;
+        size_t days_address = 0;
+        size_t ithr_address = 0;
+        size_t this_day_size_address = 0;
+        size_t this_lineitem_index = 0;
+       
         for (int row_id = start_row_id; row_id < end_row_id; row_id++)
         {
             item_len = CharArrayToInt(t_pcontent, '|', order_id);
-           
-            if (pre_orderid != order_id)//&& oidHash < _order_size)
-            {
-                oidHash = OidHash(order_id);
-                if (_oid_to_address[oidHash] == -1)
-                {
-                    _oid_to_address[oidHash] = row_id;
-                }else if (row_id < _oid_to_address[oidHash])
-                {
-                    _oid_to_address[oidHash] = row_id;
-                }
-                
-                pre_orderid = order_id;
-            }
-
-            p_lineitem->order_id = order_id;
+            oid_key = OidHash(order_id);
             t_pcontent += item_len + 1;  // pcontent go to the next char of '|'
 
             item_len = CharArrayToInt(t_pcontent, '.', price_part);
@@ -209,48 +245,43 @@ int IO_Process::ProcessLineitem(const char *file, size_t work_amount)
             item_len = CharArrayToInt(t_pcontent, '|', price_part);
             price += ((double)price_part / 100.0);
             t_pcontent += item_len + 1;
-            p_lineitem->price = price;
-
-            p_lineitem->date = 0;
-            // for(int i = 0; i < 4; ++i)
+            
+            department_type = _oid_department[oid_key];
+            days = GetDay(t_pcontent);
+            // if(flag)
             // {
-            //     p_lineitem->date = p_lineitem->date * 10 + *t_pcontent - '0';
-            //     t_pcontent++;
+            //     printf("department_type:%d\n", department_type);
+            //     flag = false;
             // }
-             p_lineitem->date = p_lineitem->date * 10 + t_pcontent[3] - '0';
-            t_pcontent += 5;
-            for(int i = 0; i < 2; ++i)
-            {
-                p_lineitem->date = p_lineitem->date * 10 + *t_pcontent - '0';
-                t_pcontent++;
-            }
+
+            department_address = department_type * DEPARTMENT_LINEITEM_SIZE;
+            days_address = days * DAYS_LINEITEM_SIZE * nthr;
+            ithr_address = ithr * DAYS_LINEITEM_SIZE;
+            this_day_size_address = (department_type * LINEITEM_DAYS) + (days);
+            this_lineitem_index = department_address + days_address + ithr_address + day_size[this_day_size_address];//department_address + days_address + day_size[this_day_size_address];
+            //printf("%d, %d, %d, %ld\n", department_type, days, day_size[this_day_size_address], this_lineitem_index);
+            _lineitem_date_oid_key[this_lineitem_index] = oid_key;
+            _lineitem_date_price[this_lineitem_index] = price;
+            day_size[this_day_size_address]++;
+
             t_pcontent++;
-            for(int i = 0; i < 2; ++i)
-            {
-                p_lineitem->date = p_lineitem->date * 10 + *t_pcontent - '0';
-                t_pcontent++;
-            }
-
-            t_pcontent++; // pcontent go to the next char of '\n'
-
             if (*t_pcontent == '\0')
                 break;
-
-            p_lineitem += 1;
         }
+        //MaxDaysSize(day_size, LINEITEM_DAYS * 5);
+        
+        // MergeLineitemRecord(t_b_lineitem_date, t_a_lineitem_date, t_m_lineitem_date, t_h_lineitem_date, t_f_lineitem_date);
     };
-
-    #pragma omp parallel num_threads(8)
+    printf("ProcessLineitem done\n");
+    #pragma omp parallel num_threads(THREAD_SIZE)
     {
-        ker(omp_get_thread_num(), 8);
+        ker(omp_get_thread_num(), THREAD_SIZE);
     }
-
-    _limeitem_size = work_amount;
     return 0;
 };
 
 
-int IO_Process::get_index_cutomer(const char first_item, size_t& d_size)
+int8_t IO_Process::get_index_cutomer(const char first_item, size_t& d_size)
 {
     if (first_item == 'B')
     {
@@ -296,7 +327,7 @@ int IO_Process::MapCustomerData(const char *file, size_t work_amount)
     IO_Mmap io_mmap(file);
     char *pcontent = io_mmap.getData();
     
-    _customer = (int*)malloc(sizeof(int)*(work_amount + 1));
+    _customer = (int8_t*)malloc(sizeof(int8_t)*(work_amount + 1));
 
     if (NULL == _customer)
     {
@@ -324,7 +355,7 @@ int IO_Process::MapCustomerData(const char *file, size_t work_amount)
             // get the type of department by its first letter
             // set _customer[row_id] = index of its type,
             // ,and change item_len to the department length 
-            int temp = get_index_cutomer(*t_pcontent, item_len);
+            int8_t temp = get_index_cutomer(*t_pcontent, item_len);
             _customer[row_id] = temp;
 
             //printf("%d %d\n", row_id, temp);
@@ -334,113 +365,28 @@ int IO_Process::MapCustomerData(const char *file, size_t work_amount)
         }
     };
 
-    #pragma omp parallel num_threads(8)
+    #pragma omp parallel num_threads(THREAD_SIZE)
     {
-        ker(omp_get_thread_num(), 8);
+        ker(omp_get_thread_num(), THREAD_SIZE);
     }
-
+    printf("MapCustomerData done\n");
     _customer_size = work_amount;
     return 0;
 };
 
-//
-// addRecord
-//
-// Desc: Put the record in the bucket of the corresponding department and date
-//
-// In:   department_type - the type of department
-//       days - how many from 1992-01-01 to now
-//       num1 - the record     
-//
-void IO_Process::AddRecord(int department_type, int days, int order_id)
-{
-    omp_set_lock(&lock);
-    switch(department_type)
-    {
-        case 0:
-            _b_date[days].push_back(order_id);
-            break;
-        case 1:
-            _a_date[days].push_back(order_id);
-            break;
-        case 2:
-            _m_date[days].push_back(order_id);
-            break;
-        case 3:
-            _f_date[days].push_back(order_id);
-            break;
-        case 4:
-            _h_date[days].push_back(order_id);
-            break;
-        default:
-            break;
-    }
-    omp_unset_lock(&lock);
-}
-
-int* IO_Process::get_custome() 
-{
-    return _customer;
-};
-
-int* IO_Process::get_oid_to_address() 
-{
-    return _oid_to_address;
-};
-
-Lineitem* IO_Process::get_lineitem() 
-{
-    return _lineitem;
-}
-
-size_t IO_Process::get_oid_to_address_size() 
-{
-    return _oid_to_address_size;
-}    
-
-
-size_t IO_Process::get_limeitem_size() 
-{
-    return _limeitem_size;
-}
-
-std::vector< std::vector<int> >  IO_Process::get_b_date() 
-{
-    return _b_date;
-}
-
-std::vector< std::vector<int> >  IO_Process::get_a_date() 
-{
-    return _a_date;
-}
-
-std::vector< std::vector<int> >  IO_Process::get_m_date() 
-{
-    return _m_date;
-}
-
-std::vector< std::vector<int> >  IO_Process::get_h_date() 
-{
-    return _h_date;
-}
-
-std::vector< std::vector<int> >  IO_Process::get_f_date() 
-{
-    return _f_date;
-}
 
 IO_Process::~IO_Process()
 {
-    // if(_order != NULL)
-    //     free(_order);
     if(_customer != NULL)
         free(_customer);
-    if(_lineitem != NULL)
-        free(_lineitem);
-    if(_oid_to_address != NULL)
-        free(_oid_to_address);
-    // if(_lineitem_index != NULL)
-    //     free(_lineitem_index);
+    if(_oid_department != NULL)
+        free(_oid_department);
+    if(_oid_key_date != NULL)
+        free(_oid_key_date);
+    if(_lineitem_date_oid_key != NULL)
+        free(_lineitem_date_oid_key);
+    if(_lineitem_date_price != NULL)
+        free(_lineitem_date_price);
 }
 
 

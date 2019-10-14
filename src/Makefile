@@ -23,7 +23,7 @@ LEX            = flex
 # -O1 - Basic optimization
 # -Wall - All warnings -m32 
 # -DDEBUG_PF - This turns on the LOG file for lots of BufferMgr info
-CFLAGS         = -fopenmp -g -O1 -std=c++11 -Wall $(STATS_OPTION) $(INC_DIRS)
+CFLAGS         = -fopenmp -g -O3 -std=c++11 -Wall $(STATS_OPTION) $(INC_DIRS)
 
 # The STATS_OPTION can be set to -DPF_STATS or to nothing to turn on and
 # off buffer manager statistics.  The student should not modify this

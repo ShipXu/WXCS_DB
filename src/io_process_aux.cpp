@@ -54,22 +54,22 @@ std::vector<size_t> _thr_order_address = {0, 63612070, 129688089, 195920356,
                                         3812507997, 3881084813, 3949662111, 4018238227, 
                                         4086814786, 4155392494, 4223968904, 4292543890, 4361120079};
 
-std::vector<size_t> _thr_lineitem_address = {0, 260179798, 530221796, 800887011, 
-                                            1071554457, 1342218546, 1612883773, 1883547616, 
-                                            2154214764, 2424880104, 2695547262, 2969349332, 
-                                            3249389699, 3529430250, 3809471087, 4089508200, 
-                                            4369548815, 4649587742, 4929628512, 5209670281, 
-                                            5489710062, 5769748883, 6049787551, 6329827787, 
-                                            6609869151, 6889910530, 7169950790, 7449990718, 
-                                            7730030997, 8010071935, 8290113092, 8570153653, 
-                                            8850193060, 9130234043, 9410276210, 9690317786, 
-                                            9970356835, 10250396943, 10530437217, 10810478495, 
-                                            11090518375, 11370559315, 11650600897, 11930640841, 
-                                            12210681598, 12490722938, 12770764541, 13050805908, 
-                                            13330845705, 13610886324, 13890926654, 14170967431, 
-                                            14451007439, 14731049331, 15011090160, 15291130595, 
-                                            15571171452, 15851213642, 16131253655, 16411293846, 
-                                            16691334154, 16971374429, 17251415364, 17531455146,17812626596};
+std::vector<size_t> _thr_lineitem_address = {0, 260196302, 530256056, 800938386, 
+                                            1071622950, 1342304147, 1612986527, 1883667431, 
+                                            2154351753, 2425034148, 2695718462, 2969544201, 
+                                            3249602231, 3529660567, 3809719123, 4089773902, 
+                                            4369832236, 4649888854, 4929947330, 5210006768, 
+                                            5490064294, 5770120810, 6050177252, 6330235181, 
+                                            6610294260, 6890353425, 7170411407, 7450469016, 
+                                            7730526997, 8010585637, 8290644513, 8570702873, 
+                                            8850759856, 9130818535, 9410878484, 9690937688, 
+                                            9970994520, 10251052373, 10531110254, 10811169454, 
+                                            11091226951, 11371285570, 11651344859, 11931402635,
+                                            12211460899, 12491520128, 12771579299, 13051638437, 
+                                            13331695959, 13611754263, 13891812380, 14171870855, 
+                                            14451928522, 14731988064, 15012046667, 15292104787, 
+                                            15572163472, 15852223225, 16132281031, 16412338993, 
+                                            16692396976, 16972454759, 17252513492, 17532571198, 17812626596};
 
 
 
@@ -77,7 +77,7 @@ std::vector<size_t> _thr_lineitem_address = {0, 260179798, 530221796, 800887011,
 int GetThrIndex(int ithr, int nthr)
 {
     assert(ithr < nthr);
-    assert(nthr % 8 == 0 && nthr != 0);
+    assert(64 % nthr == 0 && nthr != 0);
     int thr_per_amout = 64 / nthr;
     int thr_index = ithr * thr_per_amout;
     return thr_index;
@@ -120,7 +120,7 @@ size_t GetEndDivideLineitem(int ithr, int nthr)
 int GetStartRowid(int ithr, int nthr, int divide_row_amount)
 {
     assert(ithr < nthr);
-    assert(nthr % 8 == 0 && nthr != 0);
+    assert(64 % nthr == 0 && nthr != 0);
     int thr_per_amount = 64 / nthr;
     int ithr_index =  ithr * thr_per_amount;
     int row_id = divide_row_amount * ithr_index + 1;
@@ -155,14 +155,13 @@ int GetEndRowidOrder(int ithr, int nthr)
 
 int GetStartRowidLineitem(int ithr, int nthr)
 {
-    return GetStartRowid(ithr, nthr, 9375000);
+    return GetStartRowid(ithr, nthr, 9375593);
 }
 
 int GetEndRowidLineitem(int ithr, int nthr)
 {
-    assert(ithr < nthr);
     if(ithr == nthr - 1)
-        return 600000001;
+        return 600037902;
     else
         return GetStartRowidLineitem(ithr + 1, nthr);
 }
@@ -215,7 +214,7 @@ int CharArrayToInt(char * input, char c , int &num)
 }
 
 
-int GetOrderDay(char* &s_date)
+int GetDay(char* &s_date)
 {
     int yy,mm,dd;
     yy = dd = mm = 0;
@@ -362,8 +361,16 @@ void DateToInt(char *date, int &yy, int &mm, int &dd)
 //
 int OidHash(int oid)
 {
-    int rowids = oid >> 5;
-    rowids = rowids << 3;
-    rowids += oid % 8;
-    return rowids;
+    int group_num = oid >> 5;
+    group_num = group_num << 3;
+    int key = group_num + oid % 8;
+    return key;
+}
+
+int KeyToOid(int oid_key)
+{
+    int remainder = oid_key % 8;
+    int group_num = oid_key >> 3;
+    group_num  = group_num << 5;
+    return remainder + group_num;
 }

@@ -9,79 +9,91 @@
 #include <vector>
 #include "assert.h"
 #include "io_mmap.h"
+#include <stdint.h>
+
+#define THREAD_SIZE 8
+#define ORDER_DAYS 2407
+#define DAYS_OREDER_SIZE 1741//12873
+#define DEPARTMENT_ORDER_SIZE 33524696//30985311
+#define LINEITEM_DAYS 2528
+#define DAYS_LINEITEM_SIZE 6570//50757
+#define DEPARTMENT_LINEITEM_SIZE 132871680//128313696
 
 struct Result
 {
     int order_id;
-    char date[11] = "1992-01-01";
     double revenue;
 };
 
-struct Lineitem
-{
-    int order_id;
-    double price;
-    int date; // date, format example:19960102
-};
-
+// struct Lineitem
+// {
+//     int order_id;
+//     double price;
+// };
 
 class IO_Process
 {
     public:
         IO_Process(); //construct
         ~IO_Process(); //deconstruct
-        
+        int8_t get_index_cutomer(const char first_item, size_t& d_size);
         //map customer table's customer_id to it's department
         int MapCustomerData(const char *file, size_t work_amount);
-
+        void MaxDaysSize(uint32_t *day_size, int length);
         //get the data of ordertable
         int ProcessOrder(const char *custome_file, size_t cust_work_amount, const char *order_file, size_t work_amount); 
          //get the data of lineitemtable and bulid index for in
         int ProcessLineitem(const char *file, size_t work_amount);
 
-        int* get_custome();
-        int* get_oid_to_address();
-        Lineitem* get_lineitem();
+        int8_t* get_customer() { return _customer; }
+        int8_t* get_oid_department() { return _oid_department; }
 
-        size_t get_oid_to_address_size();
-        size_t get_limeitem_size();
+        int* get_oid_key_date(const char department) 
+        { 
+            size_t useless = 0;
+            int8_t department_type = get_index_cutomer(department, useless);
+            return _oid_key_date + (DEPARTMENT_ORDER_SIZE * department_type); 
+        }
 
-        std::vector< std::vector<int> >  get_b_date();
-        std::vector< std::vector<int> >  get_a_date();
-        std::vector< std::vector<int> >  get_m_date();
-        std::vector< std::vector<int> >  get_h_date();
-        std::vector< std::vector<int> >  get_f_date();
+        int* get_lineitem_date_oid_key(const char department) 
+        { 
+            size_t useless = 0;
+            int8_t department_type = get_index_cutomer(department, useless);
+            return _lineitem_date_oid_key + (DEPARTMENT_LINEITEM_SIZE * department_type); 
+        }
+        double* get_lineitem_date_price(const char department) 
+        { 
+            size_t useless = 0;
+            int8_t department_type = get_index_cutomer(department, useless);
+            return _lineitem_date_price + (DEPARTMENT_LINEITEM_SIZE * department_type); 
+        }
 
     private:
-        //Put the record in the bucket of the corresponding department and date
-        void AddRecord(int department_type, int days,int num1);
-
         template <typename T>
         void _MergeV(T &v1, const T &v2);
 
-        void MergeRecord(std::vector< std::vector<int> > &t_b_date,
-                         std::vector< std::vector<int> > &t_a_date,
-                         std::vector< std::vector<int> > &t_m_date,
-                         std::vector< std::vector<int> > &t_h_date,
-                         std::vector< std::vector<int> > &t_f_date);
+        template <typename T>
+        void MaxVectorSize(T &t_b_date, T &t_a_date,
+                        T &t_m_date, T &t_h_date,T &t_f_date);
 
-        int get_index_cutomer(const char first_item, size_t& d_size);
-        int *_customer = NULL;
-        // int _department_size[5];
-        int _lineitem_index;
-        int *_oid_to_address = NULL;
-        Lineitem *_lineitem = NULL;
+        int8_t *_customer = NULL;
+        int8_t *_oid_department = NULL;
 
+        int _fd_oid_key_date;
+        int _fd_lineitem_date_oid_key;
+        int _fd_lineitem_date_price;
+
+        char *_map_oid_key_date;
+        char *_map_lineitem_date_oid_key;
+        char *_map_lineitem_date_price;
+
+        int *_oid_key_date = NULL;
+        int *_lineitem_date_oid_key = NULL;
+        double *_lineitem_date_price = NULL;
         size_t _customer_size;
-        size_t _order_size = 150000000;        // LineitemIndex size equal to order size
-        size_t _oid_to_address_size = 150000001;        // LineitemIndex size equal to order size
-        size_t _limeitem_size;
-
-        std::vector< std::vector<int> > _b_date;  // the second char represent department;
-        std::vector< std::vector<int> > _a_date;
-        std::vector< std::vector<int> > _m_date;
-        std::vector< std::vector<int> > _h_date;
-        std::vector< std::vector<int> > _f_date;
+        size_t _order_size = 150000000;     
+      
+        int department_to_type[13];
 };
 
 int GetThrIndex(int ithr, int nthr);
@@ -107,7 +119,7 @@ int GetEndRowidLineitem(int ithr, int nthr);
 int FindChar(char * input, char c);
 // change the charArray from now to first char 'c' to long int 
 int CharArrayToInt(char * input, char c , int &num);
-int GetOrderDay(char* &s_date);
+int GetDay(char* &s_date);
 // change the date to how many days from 1992-01-01 to input 
 int DateToDay(int yy, int mm, int dd);
 // change how many days from 1992-01-01 to now to date 
@@ -116,5 +128,6 @@ void DaysToDate(int days, char *result);
 void DateToInt(char *date, int &yy, int &mm, int &dd);
 // a hash map order id to rowid
 int OidHash(int oid);
+int KeyToOid(int oid_key);
 
 #endif  //\s(([A-Z])+[a-z]+)

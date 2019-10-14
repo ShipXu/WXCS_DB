@@ -5,27 +5,56 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <stdint.h>
 
-void searchResult(IO_Process *p_io_process, char *c_mktsegment, char *ord_date, char *line_date);
+
+void SearchResult(IO_Process *p_io_process, char *c_mktsegment,
+ char *ord_oid_key_date, char *line_oid_key_date,
+  uint16_t *oid_date_exist, double *oid_key_price);
+
+void GetTime(struct timeval &start, struct timeval &end);
+void SetOrderDateExist(char *order_date, int *date_oid, uint16_t *oid_date_exist, 
+                        const int ithr, const int nthr);
+
+void SearchLineitemResult(char *lineitem_date, int *date_lineitem_oid, double *date_lineitem_price,
+                        uint16_t *oid_date_exist, double *oid_key_price, 
+                        std::vector<int> &result_oid, const int ithr, const int nthr);
+
+// void MmapWrite()
+// {
+//     int fd = open("/home/shipxu/demo_code/WXCS_DB3/index/lineitem_date_oid.txt", O_RDWR | O_CREAT, (mode_t)0600);
+
+//     size_t textsize = sizeof(int) * DEPARTMENT_ORDER_SIZE * 5;//sizeof(double) * DEPARTMENT_LINEITEM_SIZE * 5;
+
+//     lseek(fd, textsize, SEEK_SET);
+//     write(fd, "", 1);
+//     char *map = static_cast<char *>(mmap(0, textsize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+//     memcpy(map, date_oid, textsize);
+//     msync(map, textsize, MS_SYNC);
+//     munmap(map, textsize);
+//     close(fd);
+// }
 
 int main()
 {
-    double time_use=0;
     struct timeval start;
     struct timeval end;
     gettimeofday(&start,NULL); 
+
     IO_Process io_process;
     const char *cust_file, *ord_file, *line_file;
     int cust_num, ord_num, line_num;
 
-    cust_file = "/opt/demo_code/dataset/customer.txt";
-    ord_file = "/opt/demo_code/dataset/orders.txt";
-    line_file = "/opt/demo_code/dataset/lineitem.txt";
-
+    cust_file = "/home/shipxu/data/db_competition/customer.txt";
+    ord_file = "/home/shipxu/data/db_competition/orders.txt";
+    line_file = "/home/shipxu/data/db_competition/lineitem.txt";
+    // cust_file = "/home/yangming/dataset/customer.txt";
+    // ord_file = "/home/yangming/dataset/orders.txt";
+    // line_file = "/home/yangming/dataset/lineitem.txt" ;
     cust_num = 15000000;
     ord_num =  150000000;
-    line_num = 600000000;
-
+    line_num = 600037902;
+   
     // if(-1 == io_process.mapCustomerData(cust_file, cust_num))
     // {
     //     return -1;
@@ -34,102 +63,154 @@ int main()
     {
         return -1;
     }
+
+
     if (-1 == io_process.ProcessLineitem(line_file, line_num))
     {
         return -1;
     }
-    
 
-  
-    searchResult(&io_process, "BUILDING", "1995-02-29", "1995-04-27");
+    GetTime(start, end);
+    
+    double *oid_key_price = (double*)malloc(sizeof(double)*ord_num);
+    uint16_t *oid_date_exist = (uint16_t*)malloc(sizeof(uint16_t)* 150000001);
+
+    SearchResult(&io_process, "BUILDING", "1995-02-29", "1995-04-27", oid_date_exist, oid_key_price);
+    free(oid_key_price);
+    free(oid_date_exist);
+    GetTime(start, end);
+    
+    return 0;
+}
+
+void GetTime(struct timeval &start, struct timeval &end)
+{
+    double time_use=0;
     gettimeofday(&end,NULL);
     time_use=(end.tv_sec-start.tv_sec)*1000000+(end.tv_usec-start.tv_usec);//微秒
     time_use /= 1000000;
     printf("time_use is %.3f\n",time_use);
-
-    //printf("read %.3lf\n",double(clock()-start)/CLOCKS_PER_SEC); 
-    return 0;
+    start = end;
 }
 
-void searchResult(IO_Process *p_io_process, char *c_mktsegment, char *ord_date, char *line_date)
+void SetOrderDateExist(char *order_date, int *date_oid, uint16_t *oid_date_exist, 
+                        const int ithr, const int nthr)
 {
-    int line_yy, line_mm, line_dd;
-    DateToInt(line_date, line_yy, line_mm, line_dd);
-    int line_date_int = 0;
-    line_date_int = line_yy * 10000 + line_mm * 100 + line_dd;
-    //printf("line_date_int%d\n", line_date_int);
-
-    int *oid_to_address = p_io_process->get_oid_to_address();
-    Lineitem *lineitem = p_io_process->get_lineitem();
-    int lineitem_size = p_io_process->get_limeitem_size();
-
-    std::vector< std::vector<int> > date_oid;
-    switch (c_mktsegment[0])
-    {
-        case 'B' :
-            date_oid = p_io_process->get_b_date();
-            break;
-        case 'A' :
-            date_oid = p_io_process->get_a_date();
-            break;
-        case 'M' :
-            date_oid = p_io_process->get_m_date();
-            break;
-        case 'F' :
-            date_oid = p_io_process->get_f_date();
-            break;
-        case 'H' :
-            date_oid = p_io_process->get_h_date();
-            break; 
-    }
-    int yy, mm, dd;
-    DateToInt(ord_date, yy, mm, dd);
-    int days = DateToDay(yy, mm, dd);
-    //printf("days%d\n", days);
+    int order_yy, order_mm, order_dd;
+    DateToInt(order_date, order_yy, order_mm, order_dd);
+    int order_days = DateToDay(order_yy, order_mm, order_dd);
+    //printf("order_days%d\n", order_days);
     
-    Result result;
-    bool flag = false;
-    int order_id = -1;
+    size_t days_address = 0;
+    size_t ithr_address = 0;
+    size_t this_day_size_address = 0;
+    size_t this_index = 0;
 
-    //traverse all the oid with date smaller than ord_date
-    for (int day = 1; day < days; ++day)
+    int oid_key = 0;
+    for (uint16_t order_day = 1; order_day < order_days; ++order_day)
     {
-        for (size_t i = 0; i < date_oid[day].size(); ++i)
+        for (size_t this_day = 0; ; ++this_day)
         {
-            order_id =  date_oid[day][i];
-            int rowid = OidHash(order_id);
-            //printf("rowid%d\n", rowid);
-            //map order_id to the corresponding rowid int lineitem table
-            int lineIndex = oid_to_address[rowid] - 1;
-            //if this order_id have no record in lineitem table, continue
-            if (lineIndex < 0)
+            days_address = order_day * DAYS_OREDER_SIZE * nthr;
+            ithr_address = DAYS_OREDER_SIZE * ithr;
+            this_index = days_address + ithr_address + this_day;
+            oid_key =  date_oid[this_index];
+            if (oid_key == 0)
             {
-               continue;
+                break;
             }
-            //printf("lineIndex%d\n", lineIndex);
-            flag = false;
-            result.revenue = 0;
-            //traverse the corresponding lineitem
-            for (int line_index = lineIndex; line_index < lineitem_size 
-            && lineitem[line_index].order_id == order_id; ++line_index)
+            //int oid_key = OidHash(order_id);
+            oid_date_exist[oid_key] = order_day;
+        }
+    }
+}
+
+void SearchLineitemResult(char *lineitem_date, int *date_lineitem_oid, double *date_lineitem_price,
+                        uint16_t *oid_date_exist, double *oid_key_price, 
+                        std::vector<int> &result_oid, const int ithr, const int nthr)
+{
+    int lineitem_yy, lineitem_mm, lineitem_dd;
+    DateToInt(lineitem_date, lineitem_yy, lineitem_mm, lineitem_dd);
+    int lineitem_days = DateToDay(lineitem_yy, lineitem_mm, lineitem_dd);
+    //printf("lineitem_days%d\n", lineitem_days);
+
+    int oid_key = 0;
+    size_t days_address = 0;
+    size_t ithr_address = 0;
+    size_t this_day_size_address = 0;
+    size_t this_index = 0;
+    
+    for(uint16_t lineitem_day = lineitem_days+1; lineitem_day < LINEITEM_DAYS; ++lineitem_day)
+    {
+        for (size_t this_day = 0; ; ++this_day)
+        {
+            days_address = lineitem_day * DAYS_LINEITEM_SIZE * nthr;
+            ithr_address = ithr * DAYS_LINEITEM_SIZE;
+            this_index =  days_address + ithr_address + this_day;
+            oid_key =  date_lineitem_oid[this_index];
+            if(oid_key == 0)
             {
-                if (lineitem[line_index].date > line_date_int)
-                {
-                    flag = true;
-                    result.revenue += lineitem[line_index].price;
-                }
+                break;
             }
-            if (flag)
+            if(oid_date_exist[oid_key] > 0)
             {
-                result.order_id = order_id;
-                DaysToDate(day, result.date);
-                if (result.revenue >= 399884.41)
+                if(oid_key_price[oid_key] < 0.001)
                 {
-                    printf("%d, %s, %f\n", result.order_id, result.date, result.revenue);
+                    result_oid.push_back(oid_key);
                 }
-                
+                oid_key_price[oid_key] += date_lineitem_price[this_index];
             }
         }
     }
+}
+
+void SearchResult(IO_Process *p_io_process, char *c_mktsegment,
+ char *order_date, char *lineitem_date,
+  uint16_t *oid_date_exist, double *oid_key_price)
+{
+    // double time_use=0;
+    // struct timeval start;
+    // struct timeval end;
+
+    // gettimeofday(&start,NULL);
+
+    memset(oid_date_exist, 0, sizeof(uint16_t)* 150000001);
+    memset(oid_key_price, 0, sizeof(double)* 150000001);
+
+    int *date_oid = p_io_process->get_oid_key_date(c_mktsegment[0]);
+    int *date_lineitem_oid = p_io_process->get_lineitem_date_oid_key(c_mktsegment[0]);
+    double *date_lineitem_price = p_io_process->get_lineitem_date_price(c_mktsegment[0]);
+
     
+
+    // GetTime(start, end);
+    auto ker = [&](const int ithr, const int nthr)
+    {
+        //GetTime(start, end);
+        SetOrderDateExist(order_date, date_oid, oid_date_exist, ithr, nthr);
+
+        std::vector<int> result_oid;
+
+        SearchLineitemResult(lineitem_date, date_lineitem_oid, date_lineitem_price,
+            oid_date_exist, oid_key_price, result_oid, ithr, nthr);
+        Result result;
+        char result_date[11] = "1992-01-01";
+        for(int i = 0; i < result_oid.size(); ++i)
+        {
+            result.order_id = result_oid[i];
+            result.revenue = oid_key_price[result_oid[i]];
+            if(result.revenue >= 399884.41)
+            {
+                DaysToDate(oid_date_exist[result_oid[i]], result_date);
+                printf("%d, %f, %s\n", KeyToOid(result.order_id), result.revenue, result_date);
+            }
+        }
+    };
+    
+    #pragma omp parallel num_threads(THREAD_SIZE)
+    {
+        ker(omp_get_thread_num(), THREAD_SIZE);
+    }
+
+    // GetTime(start, end);
 }
