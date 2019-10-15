@@ -48,6 +48,9 @@ class IO_Process
         int8_t* get_customer() { return _customer; }
         int8_t* get_oid_department() { return _oid_department; }
 
+        size_t  get_oid_key_date_size() { return _oid_key_date_size; }
+        size_t  get_lineitem_date_size() { return _lineitem_date_size; }
+
         int* get_oid_key_date(const char department) 
         { 
             size_t useless = 0;
@@ -61,6 +64,7 @@ class IO_Process
             int8_t department_type = get_index_cutomer(department, useless);
             return _lineitem_date_oid_key + (DEPARTMENT_LINEITEM_SIZE * department_type); 
         }
+        
         double* get_lineitem_date_price(const char department) 
         { 
             size_t useless = 0;
@@ -79,21 +83,13 @@ class IO_Process
         int8_t *_customer = NULL;
         int8_t *_oid_department = NULL;
 
-        int _fd_oid_key_date;
-        int _fd_lineitem_date_oid_key;
-        int _fd_lineitem_date_price;
-
-        char *_map_oid_key_date;
-        char *_map_lineitem_date_oid_key;
-        char *_map_lineitem_date_price;
-
         int *_oid_key_date = NULL;
         int *_lineitem_date_oid_key = NULL;
         double *_lineitem_date_price = NULL;
-        size_t _customer_size;
-        size_t _order_size = 150000000;     
+
+        size_t _oid_key_date_size = 0;
+        size_t _lineitem_date_size = 0;
       
-        int department_to_type[13];
 };
 
 int GetThrIndex(int ithr, int nthr);

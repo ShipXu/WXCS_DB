@@ -100,7 +100,8 @@ int IO_Process::ProcessOrder(const char *custome_file, size_t cust_work_amount, 
     }
     memset(_oid_department, -1, sizeof(int8_t)*(work_amount + 1));
     
-    _oid_key_date = (int*)malloc(sizeof(int)*(DEPARTMENT_ORDER_SIZE * 5));
+    _oid_key_date_size = DEPARTMENT_ORDER_SIZE * 5;
+    _oid_key_date = (int*)malloc(sizeof(int) * _oid_key_date_size);
 
     if (NULL == _oid_key_date)
     {
@@ -172,7 +173,6 @@ int IO_Process::ProcessOrder(const char *custome_file, size_t cust_work_amount, 
     //MaxVectorSize(_b_oid_key_date, _a_oid_key_date, _m_oid_key_date, _h_oid_key_date, _f_oid_key_date);
     printf("ProcessOrder done\n");
     
-    _order_size = work_amount;
     return 0;
 };
 
@@ -190,14 +190,16 @@ int IO_Process::ProcessLineitem(const char *file, size_t work_amount)
 {
     IO_Mmap io_mmap(file);
     char *pcontent = io_mmap.getData();
-    int max_size = 0;
-    _lineitem_date_oid_key = (int*)malloc(sizeof(int) * DEPARTMENT_LINEITEM_SIZE * 5);
+
+    _lineitem_date_size = DEPARTMENT_LINEITEM_SIZE * 5;
+    _lineitem_date_oid_key = (int*)malloc(sizeof(int) * _lineitem_date_size);
+
     if (NULL == _lineitem_date_oid_key)
     {
         printf("error:fail to allocate memory to _lineitem_date_oid_key\n");
         return -1;
     }
-    _lineitem_date_price = (double*)malloc(sizeof(double) * DEPARTMENT_LINEITEM_SIZE * 5);
+    _lineitem_date_price = (double*)malloc(sizeof(double) * _lineitem_date_size);
     if (NULL == _lineitem_date_price)
     {
         printf("error:fail to allocate memory to _lineitem_date_price\n");
@@ -365,7 +367,7 @@ int IO_Process::MapCustomerData(const char *file, size_t work_amount)
         ker(omp_get_thread_num(), THREAD_SIZE);
     }
     printf("MapCustomerData done\n");
-    _customer_size = work_amount;
+    
     return 0;
 };
 
