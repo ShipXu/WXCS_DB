@@ -1,8 +1,7 @@
 #ifndef IO_MMAP_H
 #define IO_MMAP_H
 
-#include <sys/types.h>
-#include <sys/stat.h>
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>

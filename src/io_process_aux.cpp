@@ -374,3 +374,13 @@ int KeyToOid(int oid_key)
     group_num  = group_num << 5;
     return remainder + group_num;
 }
+
+void GetTime(struct timeval &start, struct timeval &end)
+{
+    double time_use=0;
+    gettimeofday(&end,NULL);
+    time_use=(end.tv_sec-start.tv_sec)*1000000+(end.tv_usec-start.tv_usec);//微秒
+    time_use /= 1000000;
+    printf("time_use is %.3f\n",time_use);
+    start = end;
+}

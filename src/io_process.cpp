@@ -108,7 +108,7 @@ int IO_Process::ProcessOrder(const char *custome_file, size_t cust_work_amount, 
         printf("error:fail to allocate memory to _oid_key_date\n");
         return -1;
     }
-    //memset(_oid_key_date, -1, sizeof(int)*(DEPARTMENT_ORDER_SIZE*5));
+    //memset(_oid_key_date, 0, sizeof(int) * _oid_key_date_size);
 
     // printf("read order start\n");
     auto ker = [&](const int ithr, const int nthr)
@@ -199,13 +199,20 @@ int IO_Process::ProcessLineitem(const char *file, size_t work_amount)
         printf("error:fail to allocate memory to _lineitem_date_oid_key\n");
         return -1;
     }
+    struct timeval start;
+    struct timeval end;
+    gettimeofday(&start,NULL); 
+
+    memset(_lineitem_date_oid_key, 0, sizeof(int)* _lineitem_date_size);
+    
     _lineitem_date_price = (double*)malloc(sizeof(double) * _lineitem_date_size);
     if (NULL == _lineitem_date_price)
     {
         printf("error:fail to allocate memory to _lineitem_date_price\n");
         return -1;
     }
-
+    memset(_lineitem_date_price, 0, sizeof(double)* _lineitem_date_size);
+    GetTime(start, end);
     auto ker = [&](const int ithr, const int nthr)
     {
         uint32_t day_size[LINEITEM_DAYS * 5];
@@ -269,11 +276,12 @@ int IO_Process::ProcessLineitem(const char *file, size_t work_amount)
         
         // MergeLineitemRecord(t_b_lineitem_date, t_a_lineitem_date, t_m_lineitem_date, t_h_lineitem_date, t_f_lineitem_date);
     };
-    printf("ProcessLineitem done\n");
+    
     #pragma omp parallel num_threads(THREAD_SIZE)
     {
         ker(omp_get_thread_num(), THREAD_SIZE);
     }
+    printf("ProcessLineitem done\n");
     return 0;
 };
 

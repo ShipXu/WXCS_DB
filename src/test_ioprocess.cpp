@@ -1,18 +1,18 @@
 
-#include<stdio.h>
-#include"io_process.h"
-#include<ctime>
+#include <stdio.h>
+#include "io_process.h"
+#include <ctime>
 #include <stdio.h>
 #include <sys/time.h>
 #include <stdlib.h>
-#include <stdint.h>
+
 
 
 void SearchResult(IO_Process *p_io_process, char *c_mktsegment,
  char *ord_oid_key_date, char *line_oid_key_date,
   uint16_t *oid_date_exist, double *oid_key_price);
 
-void GetTime(struct timeval &start, struct timeval &end);
+//void GetTime(struct timeval &start, struct timeval &end);
 void SetOrderDateExist(char *order_date, int *date_oid, uint16_t *oid_date_exist, 
                         const int ithr, const int nthr);
 
@@ -75,22 +75,14 @@ int main()
     double *oid_key_price = (double*)malloc(sizeof(double)*ord_num);
     uint16_t *oid_date_exist = (uint16_t*)malloc(sizeof(uint16_t)* 150000001);
 
+   
+    printf("memset done\n");
     SearchResult(&io_process, "BUILDING", "1995-02-29", "1995-04-27", oid_date_exist, oid_key_price);
     free(oid_key_price);
     free(oid_date_exist);
     GetTime(start, end);
     
     return 0;
-}
-
-void GetTime(struct timeval &start, struct timeval &end)
-{
-    double time_use=0;
-    gettimeofday(&end,NULL);
-    time_use=(end.tv_sec-start.tv_sec)*1000000+(end.tv_usec-start.tv_usec);//微秒
-    time_use /= 1000000;
-    printf("time_use is %.3f\n",time_use);
-    start = end;
 }
 
 void SetOrderDateExist(char *order_date, int *date_oid, uint16_t *oid_date_exist, 
@@ -174,15 +166,25 @@ void SearchResult(IO_Process *p_io_process, char *c_mktsegment,
 
     // gettimeofday(&start,NULL);
 
-    memset(oid_date_exist, 0, sizeof(uint16_t)* 150000001);
-    memset(oid_key_price, 0, sizeof(double)* 150000001);
+    auto ker = [&](const int ithr, const int nthr)
+    {
+        memset(oid_date_exist + GetStartRowidOrder(ithr, nthr), 0, 
+        sizeof(uint16_t)* (GetEndRowidOrder(ithr, nthr) - GetStartRowidOrder(ithr, nthr)));
+        memset(oid_key_price + GetStartRowidOrder(ithr, nthr), 0, 
+        sizeof(double) * (GetEndRowidOrder(ithr, nthr) - GetStartRowidOrder(ithr, nthr)));
+    };
+
+    #pragma omp parallel num_threads(THREAD_SIZE)
+    {
+        ker(omp_get_thread_num(), THREAD_SIZE);
+    }
 
     int *date_oid = p_io_process->get_oid_key_date(c_mktsegment[0]);
     int *date_lineitem_oid = p_io_process->get_lineitem_date_oid_key(c_mktsegment[0]);
     double *date_lineitem_price = p_io_process->get_lineitem_date_price(c_mktsegment[0]);
 
     // GetTime(start, end);
-    auto ker = [&](const int ithr, const int nthr)
+    auto ker2 = [&](const int ithr, const int nthr)
     {
         //GetTime(start, end);
         SetOrderDateExist(order_date, date_oid, oid_date_exist, ithr, nthr);
@@ -207,7 +209,7 @@ void SearchResult(IO_Process *p_io_process, char *c_mktsegment,
     
     #pragma omp parallel num_threads(THREAD_SIZE)
     {
-        ker(omp_get_thread_num(), THREAD_SIZE);
+        ker2(omp_get_thread_num(), THREAD_SIZE);
     }
 
     // GetTime(start, end);

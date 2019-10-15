@@ -10,6 +10,10 @@
 #include "assert.h"
 #include "io_mmap.h"
 #include <stdint.h>
+#include <ctime>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #define THREAD_SIZE 8
 #define ORDER_DAYS 2407
@@ -89,7 +93,6 @@ class IO_Process
 
         size_t _oid_key_date_size = 0;
         size_t _lineitem_date_size = 0;
-      
 };
 
 int GetThrIndex(int ithr, int nthr);
@@ -125,5 +128,6 @@ void DateToInt(char *date, int &yy, int &mm, int &dd);
 // a hash map order id to rowid
 int OidHash(int oid);
 int KeyToOid(int oid_key);
+void GetTime(struct timeval &start, struct timeval &end);
 
 #endif  //\s(([A-Z])+[a-z]+)
