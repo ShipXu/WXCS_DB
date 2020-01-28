@@ -23,7 +23,7 @@ LEX            = flex
 # -O1 - Basic optimization
 # -Wall - All warnings -m32 
 # -DDEBUG_PF - This turns on the LOG file for lots of BufferMgr info
-CFLAGS         = -g -O1 -Wall $(STATS_OPTION) $(INC_DIRS)
+CFLAGS         = -fopenmp -g -O3 -std=c++11 -Wall $(STATS_OPTION) $(INC_DIRS)
 
 # The STATS_OPTION can be set to -DPF_STATS or to nothing to turn on and
 # off buffer manager statistics.  The student should not modify this
@@ -33,23 +33,21 @@ STATS_OPTION   = -DPF_STATS
 #
 # Students: Please modify SOURCES variables as needed.
 #
-IO_SOURCES     = db_io.cpp
-PF_SOURCES     = pf_hashtable.cpp pf_buffermgr.cpp
-TESTER_SOURCES = test_io.cpp test_hash_table.cpp test_pfbuffer.cpp
+IO_SOURCES     = io_mmap.cpp io_process.cpp io_process_aux.cpp
+TESTER_SOURCES = test_ioprocess.cpp #test_mmap.cpp test_ioprocess.cpp test_io.cpp test_hash_table.cpp test_pfbuffer.cpp
 
 IO_OBJECTS     = $(addprefix $(BUILD_DIR), $(IO_SOURCES:.cpp=.o))
-PF_OBJECTS     = $(addprefix $(BUILD_DIR), $(PF_SOURCES:.cpp=.o))
+# PF_OBJECTS     = $(addprefix $(BUILD_DIR), $(PF_SOURCES:.cpp=.o))
 TESTER_OBJECTS = $(addprefix $(BUILD_DIR), $(TESTER_SOURCES:.cpp=.o))
-OBJECTS        = $(IO_OBJECTS) $(PF_OBJECTS) $(TESTER_OBJECTS)
+OBJECTS        = $(IO_OBJECTS) $(TESTER_OBJECTS)
 
 LIBRARY_IO     = $(LIB_DIR)libio.a
-LIBRARY_PF     = $(LIB_DIR)libpf.a
-LIBRARIES      = $(LIBRARY_IO) $(LIBRARY_PF)
+LIBRARIES      = $(LIBRARY_IO)
 
 TESTS          = $(TESTER_SOURCES:.cpp=)
 EXECUTABLES    = $(TESTS)
 
-LIBS           = -lpf #-lix -lrm  -lparser -lql -lsm 
+LIBS           = -lio#-lpf -lix -lrm  -lparser -lql -lsm 
 
 #
 # Build targets
@@ -68,9 +66,9 @@ $(LIBRARY_IO): $(IO_OBJECTS)
 	$(AR) $(LIBRARY_IO) $(IO_OBJECTS)
 	$(RANLIB) $(LIBRARY_IO)
 
-$(LIBRARY_PF): $(PF_OBJECTS)
-	$(AR) $(LIBRARY_PF) $(PF_OBJECTS)
-	$(RANLIB) $(LIBRARY_PF)
+# $(LIBRARY_PF): $(PF_OBJECTS)
+# 	$(AR) $(LIBRARY_PF) $(PF_OBJECTS)
+# 	$(RANLIB) $(LIBRARY_PF)
 
 #
 # Rules
